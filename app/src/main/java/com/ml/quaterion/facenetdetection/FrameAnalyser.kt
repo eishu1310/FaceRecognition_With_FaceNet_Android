@@ -39,6 +39,12 @@ class FrameAnalyser( private var context: Context ,
                      private var model: FaceNetModel
                      ) : ImageAnalysis.Analyzer {
 
+    companion object {
+        init {
+            System.loadLibrary( "operations" )
+        }
+    }
+
     private val realTimeOpts = FaceDetectorOptions.Builder()
             .setPerformanceMode( FaceDetectorOptions.PERFORMANCE_MODE_FAST )
             .build()
@@ -64,9 +70,11 @@ class FrameAnalyser( private var context: Context ,
     // Use this variable to enable/disable mask detection.
     private val isMaskDetectionOn = true
 
+    private val useNativeOps = true ;
+
     // <-------------------------------------------------------->
 
-
+    private var t1 : Long = 0L
     init {
         boundingBoxOverlay.drawMaskLabel = isMaskDetectionOn
     }
@@ -108,6 +116,7 @@ class FrameAnalyser( private var context: Context ,
 
     private suspend fun runModel( faces : List<Face> , cameraFrameBitmap : Bitmap ){
         withContext( Dispatchers.Default ) {
+            t1 = System.currentTimeMillis()
             val predictions = ArrayList<Prediction>()
             for (face in faces) {
                 try {
@@ -125,41 +134,16 @@ class FrameAnalyser( private var context: Context ,
 
                     // Continue with the recognition if the user is not wearing a face mask
                     if (maskLabel == maskDetectionModel.NO_MASK) {
-                        // Perform clustering ( grouping )
-                        // Store the clusters in a HashMap. Here, the key would represent the 'name'
-                        // of that cluster and ArrayList<Float> would represent the collection of all
-                        // L2 norms/ cosine distances.
-                        for ( i in 0 until faceList.size ) {
-                            // If this cluster ( i.e an ArrayList with a specific key ) does not exist,
-                            // initialize a new one.
-                            if ( nameScoreHashmap[ faceList[ i ].first ] == null ) {
-                                // Compute the L2 norm and then append it to the ArrayList.
-                                val p = ArrayList<Float>()
-                                if ( metricToBeUsed == "cosine" ) {
-                                    p.add( cosineSimilarity( subject , faceList[ i ].second ) )
-                                }
-                                else {
-                                    p.add( L2Norm( subject , faceList[ i ].second ) )
-                                }
-                                nameScoreHashmap[ faceList[ i ].first ] = p
-                            }
-                            // If this cluster exists, append the L2 norm/cosine score to it.
-                            else {
-                                if ( metricToBeUsed == "cosine" ) {
-                                    nameScoreHashmap[ faceList[ i ].first ]?.add( cosineSimilarity( subject , faceList[ i ].second ) )
-                                }
-                                else {
-                                    nameScoreHashmap[ faceList[ i ].first ]?.add( L2Norm( subject , faceList[ i ].second ) )
-                                }
-                            }
+
+                        val clusters : Map<String,List<Pair<String,FloatArray>>> = faceList.groupBy { it.first }
+                        val avgScores = ArrayList<Float>()
+                        val names = ArrayList<String>()
+                        for( ( name , embeddings ) in clusters ) {
+                            names.add( name )
+                            val cluster = embeddings.map{ it.second }.toTypedArray()
+                            val score = averageL2Cluster( subject , model.embeddingDim , cluster , cluster.size )
+                            avgScores.add( score )
                         }
-
-                        // Compute the average of all scores norms for each cluster.
-                        val avgScores = nameScoreHashmap.values.map{ scores -> scores.toFloatArray().average() }
-                        Logger.log( "Average score for each user : $nameScoreHashmap" )
-
-                        val names = nameScoreHashmap.keys.toTypedArray()
-                        nameScoreHashmap.clear()
 
                         // Calculate the minimum L2 distance from the stored average L2 norms.
                         val bestScoreUserName: String = if ( metricToBeUsed == "cosine" ) {
@@ -198,6 +182,7 @@ class FrameAnalyser( private var context: Context ,
                             )
                         )
                     }
+                    Log.e( "Performance" , "Inference time -> ${System.currentTimeMillis() - t1}")
                 }
                 catch ( e : Exception ) {
                     // If any exception occurs with this box and continue with the next boxes.
@@ -209,12 +194,31 @@ class FrameAnalyser( private var context: Context ,
                 // Clear the BoundingBoxOverlay and set the new results ( boxes ) to be displayed.
                 boundingBoxOverlay.faceBoundingBoxes = predictions
                 boundingBoxOverlay.invalidate()
-
                 isProcessing = false
             }
         }
     }
 
+    private fun calculateL2Norm( x1 : FloatArray , x2 : FloatArray ) : Float {
+        // return L2Norm( x1 , x2 )
+        return nativeL2Norm( x1 , x2 , model.embeddingDim )
+    }
+
+    private fun calculateCosineSimilarity( x1 : FloatArray , x2 : FloatArray ) : Float {
+        // return cosineSimilarity( x1 , x2 )
+        return nativeCosineSimilarity( x1 , x2 , model.embeddingDim )
+    }
+
+    private external fun nativeL2Norm(x : FloatArray, y : FloatArray, size : Int ) : Float
+
+    private external fun nativeCosineSimilarity(x : FloatArray, y : FloatArray, size : Int ) : Float
+
+    private external fun averageL2Cluster(
+        subjectEmbedding : FloatArray ,
+        embeddingSize : Int ,
+        cluster : Array<FloatArray> ,
+        clusterSize : Int
+    ) : Float
 
     // Compute the L2 norm of ( x2 - x1 )
     private fun L2Norm( x1 : FloatArray, x2 : FloatArray ) : Float {
@@ -228,6 +232,44 @@ class FrameAnalyser( private var context: Context ,
         val mag2 = sqrt( x2.map { it * it }.sum() )
         val dot = x1.mapIndexed{ i , xi -> xi * x2[ i ] }.sum()
         return dot / (mag1 * mag2)
+    }
+
+    fun bitmapToNV21ByteArray(bitmap: Bitmap): ByteArray {
+        val argb = IntArray(bitmap.width * bitmap.height )
+        bitmap.getPixels(argb, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        val yuv = ByteArray(bitmap.height * bitmap.width + 2 * Math.ceil(bitmap.height / 2.0).toInt()
+                * Math.ceil(bitmap.width / 2.0).toInt())
+        encodeYUV420SP( yuv, argb, bitmap.width, bitmap.height)
+        return yuv
+    }
+
+    private fun encodeYUV420SP(yuv420sp: ByteArray, argb: IntArray, width: Int, height: Int) {
+        val frameSize = width * height
+        var yIndex = 0
+        var uvIndex = frameSize
+        var R: Int
+        var G: Int
+        var B: Int
+        var Y: Int
+        var U: Int
+        var V: Int
+        var index = 0
+        for (j in 0 until height) {
+            for (i in 0 until width) {
+                R = argb[index] and 0xff0000 shr 16
+                G = argb[index] and 0xff00 shr 8
+                B = argb[index] and 0xff shr 0
+                Y = (66 * R + 129 * G + 25 * B + 128 shr 8) + 16
+                U = (-38 * R - 74 * G + 112 * B + 128 shr 8) + 128
+                V = (112 * R - 94 * G - 18 * B + 128 shr 8) + 128
+                yuv420sp[yIndex++] = (if (Y < 0) 0 else if (Y > 255) 255 else Y).toByte()
+                if (j % 2 == 0 && index % 2 == 0) {
+                    yuv420sp[uvIndex++] = (if (V < 0) 0 else if (V > 255) 255 else V).toByte()
+                    yuv420sp[uvIndex++] = (if (U < 0) 0 else if (U > 255) 255 else U).toByte()
+                }
+                index++
+            }
+        }
     }
 
 }

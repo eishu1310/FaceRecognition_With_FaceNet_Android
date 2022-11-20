@@ -32,7 +32,6 @@ class FileReader( private var faceNetModel: FaceNetModel ) {
         .setPerformanceMode( FaceDetectorOptions.PERFORMANCE_MODE_FAST )
         .build()
     private val detector = FaceDetection.getClient( realTimeOpts )
-    private val defaultScope = CoroutineScope( Dispatchers.Default )
     private val mainScope = CoroutineScope( Dispatchers.Main )
     private var numImagesWithNoFaces = 0
     private var imageCounter = 0

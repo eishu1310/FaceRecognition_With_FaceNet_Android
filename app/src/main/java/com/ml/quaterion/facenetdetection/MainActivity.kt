@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity() {
             .build()
         preview.setSurfaceProvider( previewView.surfaceProvider )
         val imageFrameAnalysis = ImageAnalysis.Builder()
-            .setTargetResolution(Size( 480, 640 ) )
+            .setTargetResolution(Size( 480, 640 ))
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
         imageFrameAnalysis.setAnalyzer(Executors.newSingleThreadExecutor(), frameAnalyser )

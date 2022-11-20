@@ -4,7 +4,9 @@ plugins {
 }
 
 android {
-    compileSdk 33
+    compileSdkVersion 33
+    ndkVersion "23.2.8568313"
+
     defaultConfig {
         applicationId "com.ml.quaterion.facenetdetection"
         minSdk 25
@@ -28,6 +30,12 @@ android {
     }
     buildFeatures {
         viewBinding true
+    }
+    externalNativeBuild {
+        cmake {
+            path file('CMakeLists.txt')
+            version '3.18.1'
+        }
     }
 }
 

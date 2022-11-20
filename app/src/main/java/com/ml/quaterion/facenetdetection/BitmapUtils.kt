@@ -20,7 +20,6 @@ import android.graphics.*
 import android.media.Image
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -37,6 +36,8 @@ class BitmapUtils {
         fun cropRectFromBitmap(source: Bitmap, rect: Rect ): Bitmap {
             var width = rect.width()
             var height = rect.height()
+            rect.left = if( rect.left > 0 ) rect.left else 0
+            rect.top = if( rect.top > 0 ) rect.top else 0
             if ( (rect.left + width) > source.width ){
                 width = source.width - rect.left
             }
