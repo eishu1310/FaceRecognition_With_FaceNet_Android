@@ -26,6 +26,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileDescriptor
 import java.io.FileOutputStream
+import kotlin.math.abs
 
 // Helper class for operations on Bitmaps
 class BitmapUtils {
@@ -39,10 +40,10 @@ class BitmapUtils {
             rect.left = if( rect.left > 0 ) rect.left else 0
             rect.top = if( rect.top > 0 ) rect.top else 0
             if ( (rect.left + width) > source.width ){
-                width = source.width - rect.left
+                width = abs( source.width - rect.left )
             }
             if ( (rect.top + height ) > source.height ){
-                height = source.height - rect.top
+                height = abs( source.height - rect.top )
             }
             val croppedBitmap = Bitmap.createBitmap( source , rect.left , rect.top , width , height )
             // Uncomment the below line if you want to save the input image.

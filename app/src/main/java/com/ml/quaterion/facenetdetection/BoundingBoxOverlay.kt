@@ -78,7 +78,7 @@ class BoundingBoxOverlay( context: Context , attributeSet: AttributeSet )
                 val yFactor: Float = viewHeight / frameHeight.toFloat()
                 // Scale and mirror the coordinates ( required for front lens )
                 output2OverlayTransform.preScale(xFactor, yFactor)
-                output2OverlayTransform.postScale(-1f, 1f, viewWidth / 2f, viewHeight / 2f)
+                //output2OverlayTransform.postScale(-1f, 1f, viewWidth / 2f, viewHeight / 2f)
                 areDimsInit = true
             }
             else {

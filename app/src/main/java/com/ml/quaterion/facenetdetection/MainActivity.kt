@@ -175,7 +175,7 @@ class MainActivity : AppCompatActivity() {
     private fun bindPreview(cameraProvider : ProcessCameraProvider) {
         val preview : Preview = Preview.Builder().build()
         val cameraSelector : CameraSelector = CameraSelector.Builder()
-            .requireLensFacing( CameraSelector.LENS_FACING_FRONT )
+            .requireLensFacing( CameraSelector.LENS_FACING_BACK )
             .build()
         preview.setSurfaceProvider( previewView.surfaceProvider )
         val imageFrameAnalysis = ImageAnalysis.Builder()
@@ -216,7 +216,6 @@ class MainActivity : AppCompatActivity() {
             }
             alertDialog.show()
         }
-
     }
 
 

@@ -97,7 +97,6 @@ class FrameAnalyser( private var context: Context ,
             var frameBitmap = Bitmap.createBitmap( cameraXImage.width , cameraXImage.height , Bitmap.Config.ARGB_8888 )
             frameBitmap.copyPixelsFromBuffer( image.planes[0].buffer )
             frameBitmap = BitmapUtils.rotateBitmap( frameBitmap , image.imageInfo.rotationDegrees.toFloat() )
-            //val frameBitmap = BitmapUtils.imageToBitmap( image.image!! , image.imageInfo.rotationDegrees )
 
             // Configure frameHeight and frameWidth for output2overlay transformation matrix.
             if ( !boundingBoxOverlay.areDimsInit ) {
